@@ -9,6 +9,8 @@ import UIKit
 
 class VillagerTableViewController: UITableViewController {
 
+	var villagers: [Villager] = []
+	
     override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -17,29 +19,36 @@ class VillagerTableViewController: UITableViewController {
 
         // Uncomment the following line to display an Edit button in the navigation bar for this view controller.
         // self.navigationItem.rightBarButtonItem = self.editButtonItem
+		fetchVillagers {
+			DispatchQueue.main.async {
+				print("reloading data with \(self.villagers.count) villagers")
+				self.tableView.reloadData()
+			}
+		}
     }
 
     // MARK: - Table view data source
 
     override func numberOfSections(in tableView: UITableView) -> Int {
         // #warning Incomplete implementation, return the number of sections
-        return 0
+        return 1
     }
 
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         // #warning Incomplete implementation, return the number of rows
-        return 0
+		return villagers.count
     }
 
-    /*
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "reuseIdentifier", for: indexPath)
+		guard let cell =
+				tableView.dequeueReusableCell(withIdentifier: "VillagerCell", for: indexPath) as? VillagerTableViewCell
+		else { return UITableViewCell() }
 
         // Configure the cell...
+		cell.configure(with: villagers[indexPath.row])
 
         return cell
     }
-    */
 
     /*
     // Override to support conditional editing of the table view.
@@ -75,6 +84,43 @@ class VillagerTableViewController: UITableViewController {
         return true
     }
     */
+	
+	func fetchVillagers(completion: @escaping () -> Void) {
+		var villagerURLComponents: URLComponents = .init()
+		
+		villagerURLComponents.scheme = "https"
+		villagerURLComponents.host = "api.nookipedia.com"
+		villagerURLComponents.path = "/villagers"
+		
+		guard let url = villagerURLComponents.url else {
+			print("Error: Could not contstruct URL from URLComponents")
+			return
+		}
+		
+		var request: URLRequest = .init(url: url)
+		request.addValue(API_KEY, forHTTPHeaderField: "X-API-KEY")
+		
+		Task {
+			do {
+				let (data, response) = try await URLSession.shared.data(for: request)
+				
+				guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+					print("Error: Bad HTTP response")
+					return
+				}
+				
+				villagers = try JSONDecoder().decode([Villager].self, from: data)
+				
+				for villager in villagers {
+					print("\(villager.name)")
+				}
+				completion()
+			} catch {
+				print("Error: \(error.localizedDescription)")
+				return
+			}
+		}
+	}
 
     /*
     // MARK: - Navigation
